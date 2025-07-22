@@ -22,15 +22,15 @@ app.command('/tc', async ({ command, ack, respond, client }) => {
     // 1. get sender’s tz
     const { user } = await client.users.info({ user: command.user_id });
     const senderTz = user?.tz || 'UTC';
-    console.log('✏️ senderTz =', senderTz);
+    //console.log('✏️ senderTz =', senderTz);
 
     // 2. build a reference “now” in sender’s tz
     const referenceDate = moment().tz(senderTz).toDate();
-    console.log('✏️ referenceDate (user now) =', referenceDate.toISOString());
+    //console.log('✏️ referenceDate (user now) =', referenceDate.toISOString());
 
     // 3. parse the input relative to that
     let parsed = chrono.parseDate(command.text, referenceDate);
-    console.log('✏️ chrono.parseDate result =', parsed && parsed.toISOString());
+    //console.log('✏️ chrono.parseDate result =', parsed && parsed.toISOString());
     if (!parsed) {
       await respond("Could not parse that time.");
       return;
@@ -38,14 +38,14 @@ app.command('/tc', async ({ command, ack, respond, client }) => {
 
     // 3.1 fix Chrono’s UTC bias by shifting by the user’s offset
     const senderOffset = moment(parsed).tz(senderTz).utcOffset(); // in minutes
-    console.log('✏️ senderOffset (minutes) =', senderOffset);
+    //console.log('✏️ senderOffset (minutes) =', senderOffset);
     const correctedTs = parsed.getTime() + (-senderOffset * 60_000);
     parsed = new Date(correctedTs);
-    console.log('✏️ corrected parsed result =', parsed.toISOString());
+    //console.log('✏️ corrected parsed result =', parsed.toISOString());
 
     // 4. create the base moment in sender’s tz
     const baseTime = moment.tz(parsed, senderTz);
-    console.log('✏️ baseTime in senderTz =', baseTime.format('YYYY-MM-DDTHH:mm:ssZ'));
+    //console.log('✏️ baseTime in senderTz =', baseTime.format('YYYY-MM-DDTHH:mm:ssZ'));
 
     // 5. fetch members & collect unique zones
     const membersRes = await client.conversations.members({ channel: command.channel_id });
