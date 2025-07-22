@@ -23,16 +23,20 @@ app.command('/tc', async ({ command, ack, respond, client }) => {
     const { user } = await client.users.info({ user: command.user_id });
     const senderTz = user?.tz || 'UTC';
 
-    // 2. build a reference date at the user's "now"
     const referenceDate = moment().tz(senderTz).toDate();
+    console.log(`✏️ senderTz = ${senderTz}`);
+    console.log(`✏️ referenceDate (user now) = ${referenceDate.toISOString()}`);
 
     // 3. parse the input relative to that reference
     const parsed = chrono.parseDate(command.text, referenceDate);
+    console.log(`✏️ parsed result = ${parsed && parsed.toISOString()}`);
     if (!parsed) {
       await respond("Could not parse that time.");
       return;
     }
+
     const baseTime = moment.tz(parsed, senderTz);
+    console.log(`✏️ baseTime in senderTz = ${baseTime.format('YYYY-MM-DDTHH:mm:ssZ')}`);
 
     // 4. fetch channel members
     const membersRes = await client.conversations.members({ channel: command.channel_id });
