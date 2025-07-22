@@ -1,16 +1,12 @@
-// index.js
-
 const { App } = require('@slack/bolt');
 const chrono = require('chrono-node');
 const moment = require('moment-timezone');
 require('dotenv').config();
 
-// Helper: extract a human‑readable place name from an IANA tz string
+// Helper: turn IANA tz like "Europe/Berlin" → "Berlin"
 function getPlaceName(tz) {
   const parts = tz.split('/');
-  // use the part after the slash, or the whole string if none
   const raw = parts[1] || parts[0];
-  // replace underscores with spaces
   return raw.replace(/_/g, ' ');
 }
 
@@ -24,55 +20,50 @@ app.command('/tc', async ({ command, ack, respond, client }) => {
 
   try {
     // 1. sender's timezone
-    const { user: sender } = (await client.users.info({ user: command.user_id })).user
-      ? { user: (await client.users.info({ user: command.user_id })).user }
-      : {};
-    const senderTz = sender?.tz || 'UTC';
+    const { user } = await client.users.info({ user: command.user_id });
+    const senderTz = user?.tz || 'UTC';
 
-    // 2. parse the input in sender's tz
-    const parsed = chrono.parseDate(command.text, new Date(), { timezone: senderTz });
+    // 2. build a reference date at the user's "now"
+    const referenceDate = moment().tz(senderTz).toDate();
+
+    // 3. parse the input relative to that reference
+    const parsed = chrono.parseDate(command.text, referenceDate);
     if (!parsed) {
       await respond("Could not parse that time.");
       return;
     }
     const baseTime = moment.tz(parsed, senderTz);
 
-    // 3. fetch members of this channel
+    // 4. fetch channel members
     const membersRes = await client.conversations.members({ channel: command.channel_id });
-    const userIds = membersRes.members.filter((id) => !id.startsWith('B')); // skip bots
+    const userIds = membersRes.members.filter(id => !id.startsWith('B')); // skip bots
 
-    // 4. collect each user's timezone
+    // 5. collect unique timezones
     const tzSet = new Set();
-    for (const userId of userIds) {
-      const { user } = await client.users.info({ user: userId });
-      if (user?.tz) tzSet.add(user.tz);
+    for (const uid of userIds) {
+      const { user: u } = await client.users.info({ user: uid });
+      if (u?.tz) tzSet.add(u.tz);
     }
 
-    // 5. build conversions
+    // 6. convert for each timezone
     const results = [...tzSet]
-      .map((tz) => {
-        const converted = baseTime.clone().tz(tz);
+      .map(tz => {
+        const c = baseTime.clone().tz(tz);
         return {
-          tz,
-          time: converted.format('HH:mm'),
-          date: converted.format('MMMM D'),
+          time: c.format('HH:mm'),
+          date: c.format('MMMM D'),
           place: getPlaceName(tz)
         };
       })
-      // sort by clock time
       .sort((a, b) => a.time.localeCompare(b.time));
 
-    // 6. format header and lines
+    // 7. format and respond
     const header = `${baseTime.format('HH:mm')} on ${baseTime.format('MMMM D')} in ${senderTz}`;
+    const lines = results.map(r => `• ${r.time} ${r.date} in ${r.place}`).join('\n');
 
-    const formattedTimes = results
-      .map((r) => `• ${r.time} ${r.date} in ${r.place}`)
-      .join('\n');
-
-    // 7. send the response
     await respond({
       response_type: 'in_channel',
-      text: `${header}\n\n${formattedTimes}`
+      text: `${header}\n\n${lines}`
     });
 
   } catch (err) {
