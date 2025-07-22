@@ -1,0 +1,15 @@
+{
+  "name": "chronomate",
+  "version": "1.0.0",
+  "description": "Slack bot that converts a slash‑command time into each user’s local time",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@slack/bolt": "^4.0.0",
+    "chrono-node": "^2.3.1",
+    "moment-timezone": "^0.5.43",
+    "dotenv": "^16.0.0"
+  }
+}
